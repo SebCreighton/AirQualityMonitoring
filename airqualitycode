@@ -1,0 +1,151 @@
+#include <ESP8266WiFi.h>
+
+int airquality = 0;
+float voltage, NO;
+int sensorValue;
+int redled=16;
+int yellowed=4;
+int greenled=2;
+
+const char* ssid = "SSID";
+const char* password = "PASSWORD";
+
+// Web Server on port 80
+WiFiServer server(80);
+
+void setup()
+
+{ 
+pinMode(redled, OUTPUT);
+pinMode(yellowled, OUTPUT);
+pinMode(greenled, OUTPUT);
+  // Initializing serial port for debugging purposes
+  Serial.begin(115200);
+  delay(100);
+
+  // Connecting to WiFi network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  
+  WiFi.begin(ssid, password);
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+
+// Starting the web server
+  server.begin();
+  Serial.println("Web server running. Waiting for the ESP IP...");
+  delay(10000);
+  
+  // Printing the ESP IP address
+  Serial.println(WiFi.localIP());
+  Serial.println(F("Grove Air Quality Sensor"));
+
+}
+
+void loop()
+
+{
+  // Listenning for new clients
+  WiFiClient client = server.available();
+
+int sensorValue = analogRead(A0);
+
+Serial.print("Air Quality = ");
+
+Serial.print(sensorValue);
+
+Serial.println();
+voltage = sensorValue * (5.0 / 1023.0);
+
+Serial.print("Voltage =");
+Serial.print(voltage);
+Serial.println("V");
+
+Serial.println();
+
+delay(1000);
+
+if (client) {
+    Serial.println("New client");
+    // bolean to locate when the http request ends
+    boolean blank_line = true;
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();
+        
+        if (c == '\n' && blank_line) {
+            
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-Type: text/html");
+            client.println("Connection: close");
+            client.println();
+            
+            client.println("<!DOCTYPE HTML>");
+            client.println("<html>");
+            client.println("<head><META HTTP-EQUIV=\"refresh\" CONTENT=\"15\"></head>");
+            client.println("<body><h1>ESP8266 Air Quality Web Server</h1>");
+            client.println("<table border=\"2\" width=\"456\" cellpadding=\"10\"><tbody><tr><td>");
+            client.println("<h3>Air Quality = ");
+            client.println(sensorValue);
+            client.println("</h3><h3>Voltage = ");
+            client.println(voltage);
+            client.println("V</h3>");
+            client.println();
+            if (voltage <=0.50 && voltage >=0.00)
+            {
+              client.println("<h3>GOOD!! Low Pollution!!</h3>");
+digital.write(greenled, LOW);
+digital.write(yellowled, HIGH);
+digital.write(redled, HIGH);
+            }
+            else if(voltage >0.50 && voltage<=1.00)
+            {
+              client.println("<h3>MODERATE!!</h3>");
+digital.write(greenled, HIGH);
+digital.write(yellowled, LOW);
+digital.write(redled, HIGH);
+            }
+            else if (voltage >1.00 && voltage <=1.50)
+            {
+              client.println("<h3>POOR AIR!! <em>Open Windows!!</em></h3>");
+digital.write(greenled, HIGH);
+digital.write(yellowled, HIGH);
+digital.write(redled, LOW);
+
+            }
+
+            else if (voltage >1.50)
+            {
+              client.println("<h3><em>DANGER!! Move to Fresh Air!!</em></h3>");
+digital.write(greenled, HIGH);
+digital.write(yellowled, HIGH);
+digital.write(redled, LOW);
+
+            }
+
+            client.println("</h3></td></tr></tbody></table></body></html>");  
+            break;
+        }
+        if (c == '\n') {
+          // when starts reading a new line
+          blank_line = true;
+        }
+        else if (c != '\r') {
+          // when finds a character on the current line
+          blank_line = false;
+        }
+      }
+    }  
+    // closing the client connection
+    delay(1);
+    client.stop();
+    Serial.println("Client disconnected.");
+  }
+  
+}
